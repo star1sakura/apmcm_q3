@@ -33,13 +33,14 @@ def scenario_tariff_only(year: int) -> Dict[TariffKey, float]:
     """
     Reciprocal tariffs replace subsidies with an escalating path on US<->CN:
       - 10% baseline on everyone
-      - US<->CN starts at 30% (2023/2024) and adds +10pp per year from 2025, capped at 60%
+      - US<->CN starts at 30% (2023/2024) and adds +10pp per year from 2025, capped at 80%
+      - Stronger friction intended to widen high-end tech gap under de-risking
     """
     tau: Dict[TariffKey, float] = {}
     extra_cn = 0.20  # 20% means 30% total (base 10 + extra 20)
     if year >= 2025:
         extra_cn += 0.10 * (year - 2024)
-        extra_cn = min(extra_cn, 0.50)  # extra 50% + base 10% = 60% cap
+        extra_cn = min(extra_cn, 0.70)  # extra 70% + base 10% = 80% cap
     for j in config.REGIONS:
         for i in config.REGIONS:
             if i == j:
@@ -62,13 +63,13 @@ def scenario_tariff_plus_subsidy(year: int) -> Dict[str, object]:
     tau[("US", "H", "CN")] = 0.05
     tau[("US", "M", "CN")] = 0.15
     tau[("US", "L", "CN")] = 0.20
-    # Ramp subsidies over time to reflect CHIPS disbursement (stronger ramps)
+    # Ramp subsidies over time to reflect CHIPS disbursement (stronger ramps for high-end)
     if year >= 2027:
-        subsidy_h, subsidy_m = 0.10, 0.06
+        subsidy_h, subsidy_m = 0.15, 0.08
     elif year >= 2025:
-        subsidy_h, subsidy_m = 0.08, 0.05
+        subsidy_h, subsidy_m = 0.12, 0.07
     else:
-        subsidy_h, subsidy_m = 0.06, 0.04
+        subsidy_h, subsidy_m = 0.10, 0.06
     subsidy: Dict[Tuple[str, str], float] = {("US", "H"): subsidy_h, ("US", "M"): subsidy_m}
     return {"tau": tau, "subsidy": subsidy}
 
@@ -106,6 +107,7 @@ SCENARIO_FUNC_MAP = {
     "tariff_only": scenario_tariff_only,
     "tariff_plus_subsidy": scenario_tariff_plus_subsidy,
     "diff_by_chip": scenario_diff_by_chip_type,
+    "subsidy_only": lambda year: scenario_tariff_plus_subsidy(year) | {"tau": scenario_baseline(year)},
 }
 
 

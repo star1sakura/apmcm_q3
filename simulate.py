@@ -6,6 +6,7 @@ collect welfare / national security trajectories.
 from __future__ import annotations
 
 from typing import Dict, Any, Optional
+import copy
 from pathlib import Path
 
 import pandas as pd
@@ -69,12 +70,15 @@ def run_scenario_with_maps(
         "tariff_only": 0.0,
         "tariff_plus_subsidy": 0.025,
         "diff_by_chip": 0.012,
+        "subsidy_only": 0.03,
     }
+    # tech feedback scaling per scenario (amplify penalties/bonuses for separation)
     default_tf = {
         "baseline": 1.0,
-        "tariff_only": 2.0,
-        "tariff_plus_subsidy": 1.5,
-        "diff_by_chip": 1.3,
+        "tariff_only": 3.0,
+        "tariff_plus_subsidy": 0.9,
+        "diff_by_chip": 1.0,
+        "subsidy_only": 1.4,
     }
     demand_growth_map = demand_growth_map or default_dg
     tech_feedback_map = tech_feedback_map or default_tf
@@ -114,9 +118,10 @@ def run_scenario_with_maps(
 
         # Scenario-specific RD adjustment from map
         rd_map = rd_hit_map or {
-            "tariff_only": {"H": 0.7, "M": 0.85},
-            "tariff_plus_subsidy": {"H": 1.10, "M": 1.05},
-            "diff_by_chip": {},
+            "tariff_only": {"H": 0.2, "M": 0.6},
+            "tariff_plus_subsidy": {"H": 1.40, "M": 1.15},
+            "diff_by_chip": {"H": 0.85, "M": 0.90},
+            "subsidy_only": {"H": 1.25, "M": 1.10},
             "baseline": {},
         }
         if scenario_name in rd_map:
@@ -234,6 +239,30 @@ def run_sensitivity_factors(factors) -> Dict[str, Any]:
     return results
 
 
+def run_elasticity_phi_sensitivity(cases: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
+    """
+    cases: name -> {"sigma_scale": float, "phi_scale": float}
+    Temporarily scale Armington elasticities and tech progress coefficients.
+    """
+    results = {}
+    orig_sigma = config.DEFAULT_SIGMA.copy()
+    orig_phi = config.TECH_PROGRESS_COEF.copy()
+    for name, cfg in cases.items():
+        sigma_scale = cfg.get("sigma_scale", 1.0)
+        phi_scale = cfg.get("phi_scale", 1.0)
+        # scale globals
+        for k in config.DEFAULT_SIGMA:
+            config.DEFAULT_SIGMA[k] = orig_sigma[k] * sigma_scale
+        for k in config.TECH_PROGRESS_COEF:
+            config.TECH_PROGRESS_COEF[k] = orig_phi[k] * phi_scale
+        scen_results = run_all_scenarios()
+        results[name] = scen_results
+    # restore
+    config.DEFAULT_SIGMA = orig_sigma
+    config.TECH_PROGRESS_COEF = orig_phi
+    return results
+
+
 def save_results_to_csv(results: Dict[str, Any], out_dir: Path) -> None:
     """
     Save per-year metrics for each scenario.
@@ -280,6 +309,34 @@ def save_results_to_csv(results: Dict[str, Any], out_dir: Path) -> None:
     summary.to_csv(out_dir / "summary.csv", index=False)
 
 
+def save_final_summary(results: Dict[str, Any], out_dir: Path) -> None:
+    """
+    Save end-of-horizon comparison table for all scenarios.
+    """
+    rows = []
+    for scen, res in results.items():
+        idx = -1
+        SAF = res["security"][idx]
+        shares = res["us_import_cn_share"][idx]
+        rows.append(
+            {
+                "scenario": scen,
+                "discounted_obj": res["discounted_obj"],
+                "NSI_final": res["NSI"][idx],
+                "Welfare_final": res["Welfare"][idx],
+                "Obj_t_final": res["Obj_t"][idx],
+                "SAF_H_final": SAF.get("H", 0.0),
+                "SAF_M_final": SAF.get("M", 0.0),
+                "SAF_L_final": SAF.get("L", 0.0),
+                "Import_share_CN_H_final": shares.get("H", 0.0),
+                "Import_share_CN_M_final": shares.get("M", 0.0),
+                "Import_share_CN_L_final": shares.get("L", 0.0),
+            }
+        )
+    df = pd.DataFrame(rows)
+    df.to_csv(out_dir / "final_summary.csv", index=False)
+
+
 if __name__ == "__main__":
     results = run_all_scenarios()
     for name, res in results.items():
@@ -288,7 +345,34 @@ if __name__ == "__main__":
     save_dir = config.PROJECT_ROOT / "results"
     save_results_to_csv(results, save_dir)
     print(f"Per-scenario time series saved to: {save_dir}")
+    save_final_summary(results, save_dir)
+    print(f"Final-year summary saved to: {save_dir/'final_summary.csv'}")
     # Save plots
     plots_dir = save_dir / "plots"
     save_all_plots(results, plots_dir)
     print(f"Plots saved to: {plots_dir}")
+
+    # Run elasticity/phi sensitivity (example high/low)
+    sens_cases = {
+        "high_sigma_low_phi": {"sigma_scale": 1.2, "phi_scale": 0.8},
+        "low_sigma_high_phi": {"sigma_scale": 0.8, "phi_scale": 1.2},
+    }
+    sens_results = run_elasticity_phi_sensitivity(sens_cases)
+    rows = []
+    for case, scen_data in sens_results.items():
+        for scen, res in scen_data.items():
+            rows.append(
+                {
+                    "case": case,
+                    "scenario": scen,
+                    "discounted_obj": res["discounted_obj"],
+                    "NSI_final": res["NSI"][-1],
+                    "Welfare_final": res["Welfare"][-1],
+                    "Import_share_CN_H_final": res["us_import_cn_share"][-1]["H"],
+                    "Import_share_CN_M_final": res["us_import_cn_share"][-1]["M"],
+                    "Import_share_CN_L_final": res["us_import_cn_share"][-1]["L"],
+                }
+            )
+    if rows:
+        pd.DataFrame(rows).to_csv(save_dir / "elasticity_phi_sensitivity.csv", index=False)
+        print(f"Elasticity/phi sensitivity saved to: {save_dir/'elasticity_phi_sensitivity.csv'}")

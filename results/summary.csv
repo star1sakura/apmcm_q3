@@ -1,5 +1,6 @@
 scenario,discounted_objective
-baseline,17309876698551.547
-tariff_only,16281552031364.668
-tariff_plus_subsidy,17540686283474.48
-diff_by_chip,16685528108454.795
+baseline,1105708807571.471
+tariff_only,1077389745832.4434
+tariff_plus_subsidy,1099673979928.0151
+diff_by_chip,1077580324855.2466
+subsidy_only,1126078207734.7976

@@ -41,33 +41,35 @@ DISCOUNT: float = 0.96
 # Elasticities and intensities (baseline guesses; can be calibrated)
 # -----------------------------
 
-# Armington substitution elasticities by chip type (USITC NAICS 334413 gives ~1.7;
-# apply uniformly as a conservative, documented value)
-DEFAULT_SIGMA: Dict[str, float] = {"H": 1.7, "M": 1.7, "L": 1.7}
+# Armington substitution elasticities by chip type.
+# USITC NAICS 334413 micro estimates给出约 3.3；高端可替代性更低、低端更高。
+DEFAULT_SIGMA: Dict[str, float] = {"H": 2.0, "M": 3.3, "L": 4.0}
 
 # Final demand price elasticities by region and chip type
+# Flamm/BEA/ITIF 等对 ICT 需求的估计落在 0.5-1.5 左右（取绝对值），高端最不敏感。
 DEFAULT_EPSILON: Dict[str, Dict[str, float]] = {
-    "US": {"H": 1.5, "M": 1.3, "L": 1.1},
-    "CN": {"H": 1.6, "M": 1.3, "L": 1.1},
-    "ROW": {"H": 1.4, "M": 1.2, "L": 1.0},
+    "US": {"H": 0.8, "M": 1.2, "L": 1.5},
+    "CN": {"H": 0.9, "M": 1.2, "L": 1.5},
+    "ROW": {"H": 0.9, "M": 1.2, "L": 1.4},
 }
 
 # Supply elasticities by region and chip type
+# 短期供给弹性文献区间 0.5-1（长期可至 ~3）；取短期偏低、中低端略高。
 DEFAULT_SUPPLY_ELASTICITY: Dict[str, Dict[str, float]] = {
-    "US": {"H": 1.0, "M": 1.0, "L": 1.0},
-    "CN": {"H": 1.1, "M": 1.1, "L": 1.1},
-    "ROW": {"H": 1.0, "M": 1.0, "L": 1.0},
+    "US": {"H": 0.8, "M": 1.0, "L": 1.2},
+    "CN": {"H": 1.0, "M": 1.2, "L": 1.4},
+    "ROW": {"H": 1.0, "M": 1.2, "L": 1.3},
 }
 
 # R&D intensity (share of sales); US aligned with SIA Factbook ~19.5%
 DEFAULT_RD_INTENSITY: Dict[str, Dict[str, float]] = {
     "US": {"H": 0.195, "M": 0.195, "L": 0.195},
-    "CN": {"H": 0.15, "M": 0.10, "L": 0.08},
-    "ROW": {"H": 0.16, "M": 0.12, "L": 0.10},
+    "CN": {"H": 0.14, "M": 0.12, "L": 0.10},
+    "ROW": {"H": 0.11, "M": 0.11, "L": 0.10},
 }
 
-# R&D to technology progress coefficients
-TECH_PROGRESS_COEF: Dict[str, float] = {"H": 0.10, "M": 0.06, "L": 0.04}
+# R&D to technology progress coefficients（高技行业文献 0.10-0.20 区间，取偏中）
+TECH_PROGRESS_COEF: Dict[str, float] = {"H": 0.12, "M": 0.08, "L": 0.05}
 
 # Default technology levels at base year (relative to US=1.0)
 TECH_INITIAL_LEVEL: Dict[str, Dict[str, float]] = {
