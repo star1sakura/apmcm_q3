@@ -5,7 +5,7 @@ collect welfare / national security trajectories.
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 import pandas as pd
